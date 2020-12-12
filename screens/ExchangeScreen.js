@@ -27,10 +27,10 @@ export default class ExchangeScreen extends Component{
 
 
 
-  addRequest =(itemName,itemDescription)=>{
+   addRequest =(itemName,itemDescription)=>{
     var userId = this.state.userId
     var randomRequestId = this.createUniqueId()
-    db.collection('requested_things').add({
+    db.collection('requested_items').add({
         "user_id": userId,
         "item_name":itemName,
         "item_description":itemDescription,
@@ -42,7 +42,15 @@ export default class ExchangeScreen extends Component{
         itemDescription : ''
     })
 
-    return Alert.alert("Item Requested Successfully")
+    return Alert.alert( 
+      'Item ready to exchange ',
+    '',
+    [
+      {text : 'Ok',onPress:()=>{
+      this.props.navigation.navigate('HomeScreen')
+      }}
+      ]
+      );
   }
 
 
