@@ -5,6 +5,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   StyleSheet,
+  ScrollView,
   TouchableOpacity,
   Alert} from 'react-native';
 import db from '../config';
@@ -17,7 +18,13 @@ export default class ExchangeScreen extends Component{
     this.state ={
       userId : firebase.auth().currentUser.email,
       itemName:"",
-      itemDescription:""
+      itemDescription:"",
+      IsExchangedRequestActive : "",
+      requestedItemName: "",
+      itemStatus:"",
+      requestId:"",
+      userDocId: '',
+      docId :''
     }
   }
 
@@ -27,7 +34,7 @@ export default class ExchangeScreen extends Component{
 
 
 
-   addRequest =(itemName,itemDescription)=>{
+  addRequest = async (itemName,itemDescription)=>{
     var userId = this.state.userId
     var randomRequestId = this.createUniqueId()
     db.collection('requested_items').add({
@@ -35,9 +42,23 @@ export default class ExchangeScreen extends Component{
         "item_name":itemName,
         "item_description":itemDescription,
         "request_id"  : randomRequestId,
+        "item_status" : "received",
+         "date"       : firebase.firestore.FieldValue.serverTimestamp()
+
     })
 
-    this.setState({
+    await  this.getItemRequest()
+    db.collection('users').where("email_id","==",userId).get()
+    .then()
+    .then((snapshot)=>{
+      snapshot.forEach((doc)=>{
+        db.collection('users').doc(doc.id).update({
+      IsItemRequestActive: true
+      })
+    })
+  })
+
+   this.setState({
         itemName :'',
         itemDescription : ''
     })
@@ -53,45 +74,183 @@ export default class ExchangeScreen extends Component{
       );
   }
 
+  receivedItems=(itemName)=>{
+    var userId = this.state.userId
+    var requestId = this.state.requestId
+    db.collection('received_items').add({
+        "user_id": userId,
+        "item_name":itemName,
+        "request_id"  : requestId,
+        "itemStatus"  : "received",
+  
+    })
+  }
+  
+   getIsExchangedRequestActive(){
+    db.collection('users')
+    .where('email_id','==',this.state.userId)
+    .onSnapshot(querySnapshot => {
+      querySnapshot.forEach(doc => {
+        this.setState({
+          IsExchangedRequestActive:doc.data().IsExchangedRequestActive,
+          userDocId : doc.id
+        })
+      })
+    })
+  }
+  
+  
+  getItemRequest =()=>{
+    // getting the requested book
+  var itemRequest=  db.collection('requested_items')
+    .where('user_id','==',this.state.userId)
+    .get()
+    .then((snapshot)=>{
+      snapshot.forEach((doc)=>{
+        if(doc.data().item_status !== "received"){
+          this.setState({
+            requestId : doc.data().request_id,
+            requestedItemName: doc.data().item_name,
+            itemStatus:doc.data().item_status,
+            docId     : doc.id
+          })
+        }
+      })
+  })}
+  
+  
+  
+  sendNotification=()=>{
+    //to get the first name and last name
+    db.collection('users').where('email_id','==',this.state.userId).get()
+    .then((snapshot)=>{
+      snapshot.forEach((doc)=>{
+        var name = doc.data().first_name
+        var lastName = doc.data().last_name
+  
+        // to get the donor id and book nam
+        db.collection('all_notifications').where('request_id','==',this.state.requestId).get()
+        .then((snapshot)=>{
+          snapshot.forEach((doc) => {
+            var donorId  = doc.data().donor_id
+            var itemName =  doc.data().item_name
+  
+            //targert user id is the donor id to send notification to the user
+            db.collection('all_notifications').add({
+              "targeted_user_id" : donorId,
+              "message" : name +" " + lastName + " received the item " + itemName ,
+              "notification_status" : "unread",
+              "item_name" : itemName
+            })
+          })
+        })
+      })
+    })
+  }
+  
+  componentDidMount(){
+    this.getItemRequest()
+    this.getIsExchangedRequestActive()
+  
+  }
+  
+  updateItemRequestStatus=()=>{
+    //updating the book status after receiving the book
+    db.collection('requested_items').doc(this.state.docId)
+    .update({
+      item_status : 'recieved'
+    })
+  
+    //getting the  doc id to update the users doc
+    db.collection('users').where('email_id','==',this.state.userId).get()
+    .then((snapshot)=>{
+      snapshot.forEach((doc) => {
+        //updating the doc
+        db.collection('users').doc(doc.id).update({
+          IsExchangedRequestActive: false
+        })
+      })
+    })
+  
+  
+  }  
+
 
   render(){
-    return(
-        <View style={{flex:1}}>
-          <MyHeader title="Add Item"/>
-            <KeyboardAvoidingView style={styles.keyBoardStyle}>
-              <TextInput
-                style ={styles.formTextInput}
-                placeholder={"enter item name"}
-                onChangeText={(text)=>{
-                    this.setState({
-                        itemName:text
-                    })
-                }}
-                value={this.state.itemName}
-              />
-              <TextInput
-                style ={[styles.formTextInput,{height:300}]}
-                multiline
-                numberOfLines ={8}
-                placeholder={"Description of item"}
-                onChangeText ={(text)=>{
-                    this.setState({
-                      itemDescription:text
-                    })
-                }}
-                value ={this.state.itemDescription}
-              />
-              <TouchableOpacity
-                style={styles.button}
-                onPress={()=>{this.addRequest(this.state.itemName,this.state.itemDescription)}}
-                >
-                <Text>Add Item</Text>
-              </TouchableOpacity>
-            </KeyboardAvoidingView>
-        </View>
-    )
+    
+      if(this.state.IsExchangedRequestActive === true){
+        return(
+  
+          // Status screen
+  
+          <View style = {{flex:1,justifyContent:'center'}}>
+            <View style={{borderColor:"orange",borderWidth:2,justifyContent:'center',alignItems:'center',padding:10,margin:10}}>
+            <Text>Item Name</Text>
+            <Text>{this.state.requestedItemName}</Text>
+            </View>
+            <View style={{borderColor:"orange",borderWidth:2,justifyContent:'center',alignItems:'center',padding:10,margin:10}}>
+            <Text> Item Status </Text>
+  
+            <Text>{this.state.itemStatus}</Text>
+            </View>
+  
+            <TouchableOpacity style={{borderWidth:1,borderColor:'orange',backgroundColor:"orange",width:300,alignSelf:'center',alignItems:'center',height:30,marginTop:30}}
+            onPress={()=>{
+              this.sendNotification()
+              this.updateItemRequestStatus();
+              this.receivedItems(this.state.requestedItemName)
+            }}>
+            <Text>I recieved the item</Text>
+            </TouchableOpacity>
+          </View>
+        )
+      }
+      else
+      {
+      return(
+        // Form screen
+          <View style={{flex:1}}>
+            <MyHeader title="Exchange Items" navigation ={this.props.navigation}/>
+  
+            <ScrollView>
+              <KeyboardAvoidingView style={styles.keyBoardStyle}>
+                <TextInput
+                  style ={styles.formTextInput}
+                  placeholder={"enter item name"}
+                  onChangeText={(text)=>{
+                      this.setState({
+                          itemName:text
+                      })
+                  }}
+                  value={this.state.itemName}
+                />
+                <TextInput
+                  style ={[styles.formTextInput,{height:300}]}
+                  multiline
+                  numberOfLines ={8}
+                  placeholder={"Description of an item"}
+                  onChangeText ={(text)=>{
+                      this.setState({
+                          item_description:text
+                      })
+                  }}
+                  value ={this.state.item_description}
+                />
+                <TouchableOpacity
+                  style={styles.button}
+                  onPress={()=>{ this.addRequest(this.state.itemName,this.state.item_description);
+                  }}
+                  >
+                  <Text>Request</Text>
+                </TouchableOpacity>
+  
+              </KeyboardAvoidingView>
+              </ScrollView>
+          </View>
+      )
+    }
   }
-}
+  }
 
 const styles = StyleSheet.create({
   keyBoardStyle : {
