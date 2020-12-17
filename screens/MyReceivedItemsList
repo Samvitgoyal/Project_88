@@ -28,7 +28,7 @@ export default class MyReceivedItemsScreen extends Component{
   }
 
   componentDidMount(){
-    this.getReceiveditemsList()
+    this.getReceivedItemsList()
   }
 
   componentWillUnmount(){
