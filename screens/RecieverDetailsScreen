@@ -18,7 +18,8 @@ export default class RecieverDetailsScreen extends Component{
       recieverName    : '',
       recieverContact : '',
       recieverAddress : '',
-      recieverRequestDocId : ''
+      recieverRequestDocId : '',
+      currencyCode : ''
     }
   }
 
@@ -55,6 +56,18 @@ export default class RecieverDetailsScreen extends Component{
     })
   }
 
+  getData(){
+    fetch("http://data.fixer.io/api/latest?access_key=1f7dd48123a05ae588283b5e13fae944&format=1")
+    .then(response=>{
+      return response.json();
+    }).then(responseData =>{
+      var currencyCode = this.state.currencyCode
+      var currency = responseData.rates.INR
+      var value = 69/currency
+      console.log(value);
+    })
+}
+
   updateItemStatus=()=>{
     db.collection('all_donations').add({
       "item_name"           : this.state.itemName,
@@ -68,7 +81,7 @@ export default class RecieverDetailsScreen extends Component{
 
   addNotification=()=>{
     var message = this.state.userName + " has shown interest in exchanging the item"
-    db.collection("all_notifications").add({
+    db.collection('all_notifications').add({
       "targeted_user_id"    : this.state.recieverId,
       "donor_id"            : this.state.userId,
       "request_id"          : this.state.requestId,
@@ -106,6 +119,9 @@ export default class RecieverDetailsScreen extends Component{
                 <Text style={{fontWeight:'bold'}}>Name : {this.state.itemName}</Text>
               </Card>
               <Card>
+                <Text style={{fontWeight:'bold'}}>Value:{this.state.currencyCode}</Text>
+              </Card>
+              <Card>
                 <Text style={{fontWeight:'bold'}}>Description : {this.state.item_description}</Text>
               </Card>
             </Card>
@@ -117,6 +133,9 @@ export default class RecieverDetailsScreen extends Component{
               >
               <Card>
                 <Text style={{fontWeight:'bold'}}>Name: {this.state.recieverName}</Text>
+              </Card>
+              <Card>
+                <Text style={{fontWeight:'bold'}}>CurrencyCode:{this.state.currencyCode}</Text>
               </Card>
               <Card>
                 <Text style={{fontWeight:'bold'}}>Contact: {this.state.recieverContact}</Text>
